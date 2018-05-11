@@ -7,8 +7,7 @@ Download
 
 To get the git version do
 
-    $ git clone git://github.com/msparapa/dga.git
-
+    $ git clone https://github.com/msparapa/dga
 
 Documentation and usage
 -----------------------
@@ -18,4 +17,4 @@ None go crazy.
 About
 -----
 
-It's a genetic algorithm duh.
+It's a discrete genetic algorithm duh.
