@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='dga',
-    version='0.1.0',
+    version='0.1.2',
     packages=['dga'],
     url='https://github.com/msparapa/dga',
     license='MIT',
