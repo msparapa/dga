@@ -1,11 +1,8 @@
 # Let's minimize the surface z = x^2 + y^2
 
-# We need to make a problem
-import optim.Problem as Problem
-
-# And we also want to solve said problem with an algorithm
-import optim.algorithms as algorithms
-
+# Some import statements
+from dga import Problem
+import dga.dga as dga
 
 # So let's start with the math problem we want to solve (minimize)
 def J(x,y):
@@ -21,5 +18,5 @@ prob.Cost(J)
 prob.State('x', lower_bound=-2, upper_bound=2, bits=4)
 prob.State('y', lower_bound=-2, upper_bound=2, bits=4)
 
-xopt = algorithms.dga(prob)
+xopt = dga(prob)
 print(xopt)

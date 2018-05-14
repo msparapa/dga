@@ -1,5 +1,8 @@
-from optim.problem import *
+from .Expression import Expression
+from .State import State
+from .Constraint import Constraint
 import re
+
 
 class Problem(object):
     ''' Defines the problem settings. '''
@@ -20,7 +23,6 @@ class Problem(object):
         self.constraint = []
         self.baked = False
 
-
     def _format_name(self, name):
         '''
         Validates that the name is in the right format
@@ -35,14 +37,11 @@ class Problem(object):
             Only alphabets, numbers and underscores allowed
             Should start with an alphabet""")
 
-
     def Constraint(self, equation='', unit='nd', direction=0):
         return self.constraint.append(Constraint(expr=equation, unit=unit, direction=direction))
 
-
     def Cost(self, equation='', unit='nd'):
         return self.cost.append(Expression(equation, unit=unit))
-
 
     def State(self, var, rate=None, unit='nd', lower_bound=None, upper_bound=None, bits=None):
         return self.state.append(State(var=var, rate=rate, unit=unit, lower_bound=lower_bound, upper_bound=upper_bound, bits=bits))
