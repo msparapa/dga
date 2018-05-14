@@ -4,6 +4,7 @@ from .algorithm import Algorithm
 from .Expression import Expression
 from .Constraint import Constraint
 from .State import State
+from .Gene import Gene
 
 import os
 import glob

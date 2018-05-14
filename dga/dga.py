@@ -1,7 +1,7 @@
 from dga.algorithm import Algorithm
 from numpy.random import randint, shuffle
 from statistics import mean
-from dga.geneticalgorithm.Gene import Gene
+from dga.Gene import Gene
 
 
 class dga(Algorithm):
