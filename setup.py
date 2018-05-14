@@ -8,5 +8,6 @@ setup(
     license='MIT',
     author='Michael Sparapany',
     author_email='msparapa@purdue.edu',
-    description='A discrete genetic algorithm.'
+    description='A discrete genetic algorithm.',
+    python_requires='>=3'
 )
