@@ -1,6 +1,5 @@
 from .Expression import Expression
 from .State import State
-from .Constraint import Constraint
 import re
 
 
@@ -36,9 +35,6 @@ class Problem(object):
             raise ValueError("""Invalid problem name specified.
             Only alphabets, numbers and underscores allowed
             Should start with an alphabet""")
-
-    def Constraint(self, equation='', unit='nd', direction=0):
-        return self.constraint.append(Constraint(expr=equation, unit=unit, direction=direction))
 
     def Cost(self, equation='', unit='nd'):
         return self.cost.append(Expression(equation, unit=unit))

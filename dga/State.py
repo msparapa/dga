@@ -1,5 +1,3 @@
-from sympy import Symbol
-
 class State(object):
     """Defines state information."""
 
@@ -27,7 +25,7 @@ class State(object):
         self.state_var = var
         self.unit = unit
         self.rate = rate
-        self.sym = Symbol(var)
+        self.sym = var
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
         self.bits = bits
