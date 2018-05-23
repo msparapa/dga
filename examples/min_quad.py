@@ -3,6 +3,7 @@
 # Some import statements
 import dga
 
+# if __name__ == '__main__':
 # So let's start with the math problem we want to solve (minimize)
 def J(x,y):
     return x**2 + y**2
@@ -16,6 +17,5 @@ prob.Cost(J)
 # We have 2 "states".
 prob.State('x', lower_bound=-2, upper_bound=2, bits=4)
 prob.State('y', lower_bound=-2, upper_bound=2, bits=4)
-
-xopt = dga.dga(prob)
+xopt = dga.dga(prob, num_cpu=1)
 print(xopt)

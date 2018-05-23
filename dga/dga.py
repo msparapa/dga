@@ -2,30 +2,37 @@ from dga.algorithm import Algorithm
 from numpy.random import randint, shuffle
 from statistics import mean
 from dga.Gene import Gene
+from dga.problem import Problem
+
+from multiprocessing_on_dill import pool
+
 
 
 class dga(Algorithm):
     Name = 'dga'
     FloatDisplayFormatting = '{0:12.4f}' # Sets the formatting for when stats are displayed each generation
 
-    def __new__(cls, problem=None, options='default'):
+    def __new__(cls, *args, **kwargs):
         obj = super(dga, cls).__new__(cls)
 
-        if options is 'default':
-            obj.options = obj._get_default_options()
-        elif len(options) is not 14:
-            raise ValueError(cls.__str__() + ': Options must be a list of 14 numbers')
-        else:
-            obj.options = options
+        obj.display_flag = kwargs.get('display_flag', 1)
+        obj.termination_bit_string_affinity = kwargs.get('termination_bit_string_affinity', 0.9)
+        obj.population_size = kwargs.get('population_size', None)
+        obj.probability_crossover = kwargs.get('probability_crossover', None)
+        obj.probability_mutation = kwargs.get('probability_mutation', None)
+        obj.max_generations = kwargs.get('max_generations', 200)
+        obj.num_cpu = kwargs.get('num_cpu', 1)
 
-        if problem is None:
+        if len(args) == 0:
+            return obj
+        elif type(args[0]) is not Problem:
             return obj
         else:
-            xopt = cls.__call__(obj, problem=problem)
+            xopt = cls.__call__(obj, problem=args[0])
             return xopt
 
 
-    def __call__(self, problem):
+    def __call__(self, problem, *args):
         '''
             Inputs:
             problem definition (problem)
@@ -33,24 +40,6 @@ class dga(Algorithm):
             Outputs:
             xopt (list of floats)
         '''
-
-        # Begin error checking and initialization of some necessary variables
-
-        # First verify this is a direct optimization problem
-        if problem.type is not 'direct':
-            raise NotImplementedError(self.__str__() + ': only implemented for direct-methods')
-
-        # Pop out the options
-        # TODO: Find a better way to organize all these dang options
-        self.display_flag = self.options[0]
-        self.termination_bit_string_affinity = self.options[1]
-        self.termination_tolerance_for_fitness = self.options[2]
-        self.termination_number_consecutive_gen = self.options[3]
-        self.number_elite_individuals = self.options[4]
-        self.population_size = self.options[10]
-        self.probability_crossover = self.options[11]
-        self.probability_mutation = self.options[12]
-        self.max_generations = self.options[13]
 
         # Perform some error checking with each state
         total_bits = 0
@@ -64,38 +53,18 @@ class dga(Algorithm):
             total_bits += state.bits
 
         num_states = len(problem.state)
-        # TODO: There's a bunch of assumptions about the options, put these in the default options function?
-        # TODO: The options get renamed as local variables for no reason. Change this so some other nerds can read it.
+
         # Create initial population size
         if self.population_size is None:
-            pop_size = total_bits * 4
-        else:
-            pop_size = self.population_size
+            self.population_size = total_bits * 4
 
-        PRINTING = self.options[0]
-        BSA = self.options[1]
-        fit_tol = self.options[2]
-        if self.options[3] is None:
-            self.options[3] = 0
-
-        nsame = self.options[3] - 1
-        elite = self.options[4]
-
-        if self.options[11] is None:
-            Pc = 0.5
-        else:
-            Pc = self.options[11]
-
-        if self.options[12] is None:
-            self.probability_mutation = (total_bits + 1) / (2 * pop_size * total_bits)
-        else:
-            self.probability_mutation = self.options[12]
-
-        max_gen = self.options[13]
+        # Set the probability of mutation
+        if self.probability_mutation is None:
+            self.probability_mutation = (total_bits + 1) / (2 * self.population_size * total_bits)
 
         # Begin initial population generation
         population = list()
-        for ii in range(pop_size):
+        for ii in range(self.population_size):
             population.append(list())
             for jj in range(num_states):
                 population[ii].append(Gene(bits=problem.state[jj].bits, lower_bound=problem.state[jj].lower_bound, upper_bound=problem.state[jj].upper_bound))
@@ -110,10 +79,18 @@ class dga(Algorithm):
         if self.display_flag > 0:
             print('Generation\t\tMinimum\t\t\tMean\t\t\tMax\t\t\t\tBSA') # TODO: Display the stats of generation 0
 
+        if self.num_cpu > 1:
+            proc = pool.Pool(4)
+
         while loop_counter < self.max_generations and not converged:
             self.tournament(problem.cost[0], population)
             self.crossover(population)
-            fitness_values = [self.get_fitness(problem.cost[0], individual) for individual in population]
+
+            if self.num_cpu > 1:
+                fitness_values = proc.map(lambda i: self.get_fitness(problem.cost[0],i), population)
+            else:
+                fitness_values = [self.get_fitness(problem.cost[0], individual) for individual in population]
+
             xopt_current, valueopt_current = self.get_best_individual(problem.cost[0], population)
             if valueopt_current < valueopt:
                 xopt = xopt_current
@@ -122,20 +99,20 @@ class dga(Algorithm):
             BSA_current = self.get_bit_string_affinity(population, total_bits)
 
             # TODO: Add other stopping criteria. There was a few other ones but I only remember BSA at the moment
-            if BSA_current > BSA:
+            if BSA_current > self.termination_bit_string_affinity:
                 converged = True
 
             loop_counter += 1
             if self.display_flag > 0:
                 print(str('{0:8.0f}'.format(loop_counter)) + '\t' + str(self.FloatDisplayFormatting.format(min(fitness_values))) + '\t' + str(self.FloatDisplayFormatting.format(mean(fitness_values))) + '\t' + str(self.FloatDisplayFormatting.format(max(fitness_values))) + '\t' + str(self.FloatDisplayFormatting.format(BSA_current)))
 
-        if self.options[6] == 1:
+        if 0 == 1:
             print('the phantom, exterior like fish eggs, interior suicide wrist red. I could excercise you, this could be your phys-ed cheat on your man homie AAH! I tried to sneak through the door man! Can\'t make it, can\'t make it, the shit\'s stuck! Outta my way son! DOOR STUCK! DOOR STUCK! Please. I beg you! We\'re dead! You\'re a g-g-genuine dick sucker!')
 
         if self.display_flag > 0 and loop_counter >= self.max_generations and not converged:
             print(self.__str__() + ': Max iterations reached')
         elif self.display_flag > 0 and converged:
-            if BSA_current > BSA:
+            if BSA_current > self.termination_bit_string_affinity:
                 print(self.__str__() + ': Stopped based on bit-string affinity value.')
             else:
                 print(self.__str__() + ': Converged')
