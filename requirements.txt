@@ -1,2 +1,4 @@
 bitarray>=0.8.1
+multiprocessing_on_dill==3.5.0a4
 numpy>=1.14.3
+pytest
