@@ -4,7 +4,7 @@ with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
 modules = []
-tests = ['dga.tests']
+tests = []
 
 setup(
     name='dga',
