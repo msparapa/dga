@@ -1,7 +1,7 @@
 from dga.problem import Problem
 from dga import dga
 
-tolerance = 1e-3
+tolerance = 1e-2
 
 def test_example_quadratic1():
     def J(x):
