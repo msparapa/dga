@@ -8,8 +8,8 @@ def test_example_quadratic1():
         return x ** 2
 
     prob = Problem('quad')
-    prob.Cost(J)
-    prob.State('x', lower_bound=-2, upper_bound=2, bits=12)
+    prob.cost(J)
+    prob.state('x', lower_bound=-2, upper_bound=2, bits=12)
     GA = dga(display_flag=0)
     xopt = GA(prob)
     assert abs(xopt['xopt'][0]) < tolerance
@@ -19,9 +19,9 @@ def test_example_quadratic2():
         return x ** 2 + y ** 2
 
     prob = Problem('quad')
-    prob.Cost(J)
-    prob.State('x', lower_bound=-2, upper_bound=2, bits=12)
-    prob.State('y', lower_bound=-2, upper_bound=2, bits=12)
+    prob.cost(J)
+    prob.state('x', lower_bound=-2, upper_bound=2, bits=12)
+    prob.state('y', lower_bound=-2, upper_bound=2, bits=12)
     GA = dga(display_flag=0)
     xopt = GA(prob)
     assert abs(xopt['xopt'][0]) < tolerance
@@ -32,9 +32,9 @@ def test_example_quadratic3():
         return x ** 2 + y ** 2
 
     prob = Problem('quad')
-    prob.Cost(J)
-    prob.State('x', lower_bound=-2, upper_bound=2, bits=4)
-    prob.State('y', lower_bound=-2, upper_bound=2, bits=4)
+    prob.cost(J)
+    prob.state('x', lower_bound=-2, upper_bound=2, bits=4)
+    prob.state('y', lower_bound=-2, upper_bound=2, bits=4)
     GA = dga(display_flag=0)
     xopt = GA(prob)
     assert abs(xopt['xopt'][0]) - 0.1333 < tolerance

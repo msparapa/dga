@@ -7,7 +7,6 @@ from dga.problem import Problem
 from multiprocessing_on_dill import pool
 
 
-
 class dga(Algorithm):
     Name = 'dga'
     FloatDisplayFormatting = '{0:12.4f}' # Sets the formatting for when stats are displayed each generation
@@ -43,7 +42,7 @@ class dga(Algorithm):
 
         # Perform some error checking with each state
         total_bits = 0
-        for state in problem.state:
+        for state in problem.states:
             # Verify every state has a lower and an upper bound.
             if state.lower_bound is None or state.upper_bound is None:
                 raise ValueError(self.__str__() + ': All states must have both a lower and an upper bound')
@@ -52,7 +51,7 @@ class dga(Algorithm):
                 raise ValueError(self.__str__() + ': All states must have a positive integer valued number of bits.')
             total_bits += state.bits
 
-        num_states = len(problem.state)
+        num_states = len(problem.states)
 
         # Create initial population size
         if self.population_size is None:
@@ -67,10 +66,10 @@ class dga(Algorithm):
         for ii in range(self.population_size):
             population.append(list())
             for jj in range(num_states):
-                population[ii].append(Gene(bits=problem.state[jj].bits, lower_bound=problem.state[jj].lower_bound, upper_bound=problem.state[jj].upper_bound))
+                population[ii].append(Gene(bits=problem.states[jj].bits, lower_bound=problem.states[jj].lower_bound, upper_bound=problem.states[jj].upper_bound))
                 population[ii][jj].init_random()
 
-        xopt, valueopt = self.get_best_individual(problem.cost[0],population)
+        xopt, valueopt = self.get_best_individual(problem.costs[0],population)
 
         # Begin the main loop
         loop_counter = 0
@@ -83,15 +82,15 @@ class dga(Algorithm):
             proc = pool.Pool(4)
 
         while loop_counter < self.max_generations and not converged:
-            self.tournament(problem.cost[0], population)
+            self.tournament(problem.costs[0], population)
             self.crossover(population)
 
             if self.num_cpu > 1:
                 fitness_values = proc.map(lambda i: self.get_fitness(problem.cost[0],i), population)
             else:
-                fitness_values = [self.get_fitness(problem.cost[0], individual) for individual in population]
+                fitness_values = [self.get_fitness(problem.costs[0], individual) for individual in population]
 
-            xopt_current, valueopt_current = self.get_best_individual(problem.cost[0], population)
+            xopt_current, valueopt_current = self.get_best_individual(problem.costs[0], population)
             if valueopt_current < valueopt:
                 xopt = xopt_current
                 valueopt = valueopt_current
