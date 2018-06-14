@@ -3,6 +3,8 @@ from numpy.random import randint, shuffle
 from statistics import mean
 from dga.Gene import Gene
 from dga.problem import Problem
+import numpy as np
+from dga.utils import keyboard
 
 from multiprocessing_on_dill import pool
 
@@ -17,8 +19,8 @@ class dga(Algorithm):
         obj.display_flag = kwargs.get('display_flag', 1)
         obj.termination_bit_string_affinity = kwargs.get('termination_bit_string_affinity', 0.9)
         obj.population_size = kwargs.get('population_size', None)
-        obj.probability_crossover = kwargs.get('probability_crossover', None)
         obj.probability_mutation = kwargs.get('probability_mutation', None)
+        obj.probability_polyploid_mutation = kwargs.get('probability_polyploid_mutation', None)
         obj.max_generations = kwargs.get('max_generations', 200)
         obj.num_cpu = kwargs.get('num_cpu', 1)
 
@@ -27,11 +29,9 @@ class dga(Algorithm):
         elif type(args[0]) is not Problem:
             return obj
         else:
-            xopt = cls.__call__(obj, problem=args[0])
-            return xopt
+            return cls.__call__(obj, args[0])
 
-
-    def __call__(self, problem, *args):
+    def solve(self, problem, *args, **kwargs):
         '''
             Inputs:
             problem definition (problem)
@@ -61,22 +61,29 @@ class dga(Algorithm):
         if self.probability_mutation is None:
             self.probability_mutation = (total_bits + 1) / (2 * self.population_size * total_bits)
 
+        # Set the probability of mutation
+        if self.probability_polyploid_mutation is None:
+            self.probability_polyploid_mutation = self.probability_mutation/2
+
         # Begin initial population generation
         population = list()
         for ii in range(self.population_size):
             population.append(list())
             for jj in range(num_states):
-                population[ii].append(Gene(bits=problem.states[jj].bits, lower_bound=problem.states[jj].lower_bound, upper_bound=problem.states[jj].upper_bound))
+                population[ii].append(Gene(bits=problem.states[jj].bits, lower_bound=problem.states[jj].lower_bound,
+                                           upper_bound=problem.states[jj].upper_bound,
+                                      polyploid_min=problem.states[jj].polyploid_min,
+                                      polyploid_max=problem.states[jj].polyploid_max))
                 population[ii][jj].init_random()
 
-        xopt, valueopt = self.get_best_individual(problem.costs[0],population)
+        xopt, valueopt = self.get_best_individual(problem.costs[0], population)
 
         # Begin the main loop
         loop_counter = 0
         converged = False
 
         if self.display_flag > 0:
-            print('Generation\t\tMinimum\t\t\tMean\t\t\tMax\t\t\t\tBSA') # TODO: Display the stats of generation 0
+            print('Generation\t\tMinimum\t\t\tMean\t\t\tMax\t\t\t\tBSA')  # TODO: Display the stats of generation 0
 
         if self.num_cpu > 1:
             proc = pool.Pool(4)
@@ -86,7 +93,7 @@ class dga(Algorithm):
             self.crossover(population)
 
             if self.num_cpu > 1:
-                fitness_values = proc.map(lambda i: self.get_fitness(problem.cost[0],i), population)
+                fitness_values = proc.map(lambda i: self.get_fitness(problem.cost[0], i), population)
             else:
                 fitness_values = [self.get_fitness(problem.costs[0], individual) for individual in population]
 
@@ -103,10 +110,15 @@ class dga(Algorithm):
 
             loop_counter += 1
             if self.display_flag > 0:
-                print(str('{0:8.0f}'.format(loop_counter)) + '\t' + str(self.FloatDisplayFormatting.format(min(fitness_values))) + '\t' + str(self.FloatDisplayFormatting.format(mean(fitness_values))) + '\t' + str(self.FloatDisplayFormatting.format(max(fitness_values))) + '\t' + str(self.FloatDisplayFormatting.format(BSA_current)))
+                print(str('{0:8.0f}'.format(loop_counter)) + '\t' + str(
+                    self.FloatDisplayFormatting.format(np.min(fitness_values))) + '\t' + str(
+                    self.FloatDisplayFormatting.format(np.mean(fitness_values))) + '\t' + str(
+                    self.FloatDisplayFormatting.format(np.max(fitness_values))) + '\t' + str(
+                    self.FloatDisplayFormatting.format(BSA_current)))
 
         if 0 == 1:
-            print('the phantom, exterior like fish eggs, interior suicide wrist red. I could excercise you, this could be your phys-ed cheat on your man homie AAH! I tried to sneak through the door man! Can\'t make it, can\'t make it, the shit\'s stuck! Outta my way son! DOOR STUCK! DOOR STUCK! Please. I beg you! We\'re dead! You\'re a g-g-genuine dick sucker!')
+            print(
+                'the phantom, exterior like fish eggs, interior suicide wrist red. I could excercise you, this could be your phys-ed cheat on your man homie AAH! I tried to sneak through the door man! Can\'t make it, can\'t make it, the shit\'s stuck! Outta my way son! DOOR STUCK! DOOR STUCK! Please. I beg you! We\'re dead! You\'re a g-g-genuine dick sucker!')
 
         if self.display_flag > 0 and loop_counter >= self.max_generations and not converged:
             print(self.__str__() + ': Max iterations reached')
@@ -116,16 +128,14 @@ class dga(Algorithm):
             else:
                 print(self.__str__() + ': Converged')
 
-
         out = dict()
         out['xopt'] = [gene.decode() for gene in xopt]
         out['cost'] = valueopt
         return out
 
-
     def get_best_individual(self, cost, population):
         ''' Find the best individual in a given population. '''
-        best_individual = population[0] # Begin by assuming the first individual is the best.
+        best_individual = population[0]  # Begin by assuming the first individual is the best.
         best_cost = self.get_fitness(cost, best_individual)
         for individual in population:
             temp_cost = self.get_fitness(cost, individual)
@@ -135,13 +145,15 @@ class dga(Algorithm):
 
         return best_individual, best_cost
 
+    def __call__(self, problem, *args, **kwargs):
+        return self.solve(problem, *args, **kwargs)
 
     def crossover(self, population):
         shuffle(population) # Shuffling the current population to randomize the crossover
         for ii in range(0, len(population), 2):
             child1, child2 = self.generate_offspring(population[ii], population[ii+1])
-            self.mutate_individual(child1, self.probability_mutation)
-            self.mutate_individual(child2, self.probability_mutation)
+            self.mutate_individual(child1, self.probability_mutation, self.probability_polyploid_mutation)
+            self.mutate_individual(child2, self.probability_mutation, self.probability_polyploid_mutation)
             population.append(child1)
             population.append(child2)
 
@@ -166,28 +178,31 @@ class dga(Algorithm):
     @staticmethod
     def get_bit_string_affinity(population, total_bits):
         # TODO: There's too many loops here. Try to pythonify this for speed. My head hurts
-        individual_ideal = population[0]
-        affinity = list()
-        for gene in individual_ideal:
-            affinity.append([1]*len(gene.bitarray))
-
-        for individual in population:
-            for gene_number in range(len(individual)):
-                for gene_bit in range(len(individual[gene_number].bitarray)):
-                    if individual_ideal[gene_number].bitarray[gene_bit] != individual[gene_number].bitarray[gene_bit]:
-                        affinity[gene_number][gene_bit] = 0
-
-        BSA_current = 0
-        for gene in affinity:
-            BSA_current += sum(gene)/total_bits
-        return BSA_current
-
+        # individual_ideal = population[0]
+        # affinity = list()
+        # for gene in individual_ideal:
+        #         affinity.append([0]*len(gene))
+        #
+        # for individual in population:
+        #     for gene_number in range(len(individual)):
+        #         if len(individual_ideal[gene_number].bitarray) == len(individual[gene_number].bitarray):
+        #             for poly in range(len(individual[gene_number].bitarray)):
+        #                 for gene_bit in range(len(individual[gene_number].bitarray[poly])):
+        #                     if individual_ideal[gene_number].bitarray[poly][gene_bit] == individual[gene_number].bitarray[poly][gene_bit]:
+        #                         affinity[gene_number][poly] = 1
+        #
+        #
+        # BSA_current = 0
+        # for gene in affinity:
+        #     BSA_current += sum(gene)/total_bits
+        # return BSA_current
+        return 0.1
 
 
     @staticmethod
-    def mutate_individual(individual, Pm):
+    def mutate_individual(individual, Pm, PPoly):
         for gene in individual:
-            gene.mutate(Pm)
+            gene.mutate(Pm, PPoly)
 
 
     @staticmethod
@@ -195,16 +210,58 @@ class dga(Algorithm):
         child1 = list()
         child2 = list()
         for gene1, gene2 in zip(parent1, parent2):
-            newgene1 = Gene(bits=gene1.bits, lower_bound=gene1.lower_bound, upper_bound=gene1.upper_bound)
-            newgene2 = Gene(bits=gene1.bits, lower_bound=gene1.lower_bound, upper_bound=gene1.upper_bound)
-            for ii in range(len(gene1.bitarray)):
-                coin_toss = randint(2)
-                if coin_toss == 0:
-                    newgene1.bitarray[ii] = gene1.bitarray[ii]
-                    newgene2.bitarray[ii] = gene2.bitarray[ii]
-                else:
-                    newgene1.bitarray[ii] = gene2.bitarray[ii]
-                    newgene2.bitarray[ii] = gene1.bitarray[ii]
+            newgene1 = Gene(bits=gene1.bits, lower_bound=gene1.lower_bound, upper_bound=gene1.upper_bound, polyploid_min=gene1.polyploid_min, polyploid_max=gene1.polyploid_max)
+            newgene2 = Gene(bits=gene1.bits, lower_bound=gene1.lower_bound, upper_bound=gene1.upper_bound, polyploid_min=gene1.polyploid_min, polyploid_max=gene1.polyploid_max)
+            num_poly1 = len(gene1.bitarray)
+            num_poly2 = len(gene2.bitarray)
+            lim = max((num_poly1,num_poly2))
+            nbits = gene1.bits
+            for ii in range(lim):
+                if ii < num_poly1 and ii < num_poly2:
+                    for jj in range(nbits):
+                        if ii > 0:
+                            newgene1.polyploid_increment()
+                            newgene2.polyploid_increment()
+
+                        coin_toss = randint(2)
+                        if coin_toss == 0:
+                            newgene1.bitarray[ii][jj] = gene1.bitarray[ii][jj]
+                            newgene2.bitarray[ii][jj] = gene2.bitarray[ii][jj]
+                        else:
+                            newgene1.bitarray[ii][jj] = gene2.bitarray[ii][jj]
+                            newgene2.bitarray[ii][jj] = gene1.bitarray[ii][jj]
+
+                elif ii < num_poly1:
+                    coin_toss = randint(3)
+                    if coin_toss == 2:
+                        if ii > 0:
+                            newgene1.polyploid_increment()
+                            newgene2.polyploid_increment()
+
+                        newgene1.bitarray[-1] = gene1.bitarray[ii]
+                        newgene2.bitarray[-1] = gene1.bitarray[ii]
+
+                    elif coin_toss == 1:
+                        if ii > 0:
+                            newgene1.polyploid_increment()
+                        newgene1.bitarray[-1] = gene1.bitarray[ii]
+
+                elif ii < num_poly2:
+                    coin_toss = randint(3)
+                    if coin_toss == 2:
+                        if ii > 0:
+                            newgene1.polyploid_increment()
+                            newgene2.polyploid_increment()
+
+                        newgene1.bitarray[-1] = gene2.bitarray[ii]
+                        newgene2.bitarray[-1] = gene2.bitarray[ii]
+
+                    elif coin_toss == 1:
+                        if ii > 0:
+                            newgene1.polyploid_increment()
+
+                        newgene1.bitarray[-1] = gene2.bitarray[ii]
+
             child1.append(newgene1)
             child2.append(newgene2)
 
@@ -215,8 +272,3 @@ class dga(Algorithm):
     def get_fitness(cost, individual):
         decoded_state = [ii.decode() for ii in individual]
         return cost.func(*decoded_state)
-
-
-    @staticmethod
-    def _get_default_options():
-        return [1,0.9,None,None,None,None,None,None,None,None,None,None,None,200]

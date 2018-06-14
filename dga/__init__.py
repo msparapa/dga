@@ -2,7 +2,6 @@ from .dga import dga
 from .problem import Problem
 from .algorithm import Algorithm
 from .Expression import Expression
-from .State import State
 from .Gene import Gene
 
 import os
