@@ -1,6 +1,4 @@
-from .Expression import Expression
 from .Gene import Gene
-
 
 class Problem(object):
     ''' Defines the problem settings. '''

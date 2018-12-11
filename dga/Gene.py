@@ -3,7 +3,6 @@ import numpy as np
 from bitarray import bitarray
 from numpy.random import randint, rand
 from math import floor
-from dga.utils import keyboard
 
 class Gene(object):
     '''
@@ -16,20 +15,17 @@ class Gene(object):
         obj.bits = kwargs.get('bits', 4)
         obj.lower_bound = kwargs.get('lower_bound', 0.0)
         obj.upper_bound = kwargs.get('upper_bound', 1.0)
-        obj.polyploid_min = kwargs.get('polyploid_min', 1)
-        obj.polyploid_max = kwargs.get('polyploid_max', 1)
-        # obj.polyploid_num = kwargs.get('polyploid_num', 1)
-        obj._build_default_bit_array(obj.bits, 1)
+        obj._build_default_bit_array(obj.bits)
         obj._set_coarse()
 
         return obj
 
-    def bitFlip(self, poly, location):
-        self.bitarray[poly][location] = not self.bitarray[poly][location]
+    def bitFlip(self, location):
+        self.bitarray[location] = not self.bitarray[location]
 
     def decode(self):
         ''' Decodes the current gene to the floating point number it represents. '''
-        return np.array([self.coarse*self._b2to10(arr) + self.lower_bound for arr in self.bitarray])
+        return self.coarse*self._b2to10(self.bitarray) + self.lower_bound
 
     def encode(self, value):
         ''' Encode a specific value into the gene. Note: this isn't needed unless an initial population is provided. '''
@@ -37,38 +33,16 @@ class Gene(object):
         temp = (value - self.lower_bound) / self.coarse
         b10 = round(temp)
         gen = self._b10to2(b10, self.bits)
-        # self.bitarray[poly] = bitarray(gen)
         return bitarray(gen)
 
     def init_random(self):
-        return bitarray([randint(2,size=1) for _ in range(self.bits)])
+        self.bitarray = bitarray([randint(2,size=1) for _ in range(self.bits)])
 
-    def mutate(self, Pm, PPoly):
+    def mutate(self, Pm):
         for ii in range(len(self.bitarray)):
-            for jj in range(len(self.bitarray[ii])):
-                coin_toss = rand()
-                if coin_toss < Pm:
-                    self.bitFlip(ii, jj)
-        coin_toss = rand()
-        if coin_toss < PPoly:
             coin_toss = rand()
-            if coin_toss < 0.5:
-                self.polyploid_decrement()
-            else:
-                self.polyploid_increment()
-
-    def polyploid_decrement(self, *args, **kwargs):
-        if len(self.bitarray) > self.polyploid_min:
-            d = randint(0,len(self.bitarray))
-            del self.bitarray[d]
-
-    def polyploid_increment(self, *args, **kwargs):
-        if len(self.bitarray) < self.polyploid_max:
-            if len(args) is None or len(args) is 0:
-                self.bitarray.append(self.init_random())
-            else:
-                self.bitarray.append(self.encode(args[0]))
-                np.float
+            if coin_toss < Pm:
+                self.bitFlip(ii)
 
     def __getitem__(self, item):
         return self.bitarray[item]
@@ -93,8 +67,8 @@ class Gene(object):
 
         return b2
 
-    def _build_default_bit_array(self, bits, poly):
-        self.bitarray = [bitarray(bits) for L in range(poly)]
+    def _build_default_bit_array(self, bits):
+        self.bitarray = bitarray(bits)
 
     def _set_coarse(self):
         self.coarse = (self.upper_bound - self.lower_bound) / ((2 ** self.bits) - 1)

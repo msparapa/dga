@@ -1,21 +1,29 @@
-from setuptools import find_packages, setup
+from setuptools import setup
+import os
 
 with open('requirements.txt') as f:
     requirements = f.read().splitlines()
 
-modules = []
-tests = []
+long_description = '''A simple discrete genetic algorithm.'''
+
+modules = ['dga']
+tests = ['dga.tests']
+
+dir_setup = os.path.dirname(os.path.realpath(__file__))
+
+with open(os.path.join(dir_setup, 'dga', 'release.py')) as f:
+    exec(f.read())
 
 setup(
     name='dga',
-    version='0.1.3',
-    packages=['dga'] + modules + tests,
+    version=__version__,
+    packages=modules + tests,
     url='https://github.com/msparapa/dga',
     license='MIT',
     author='Michael Sparapany',
     author_email='msparapa@purdue.edu',
     description='A discrete genetic algorithm.',
-    python_requires='>=3',
+    python_requires='>=3.5',
     install_requires=requirements,
     include_package_data=True
 )
