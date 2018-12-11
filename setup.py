@@ -17,6 +17,8 @@ with open(os.path.join(dir_setup, 'dga', 'release.py')) as f:
 setup(
     name='dga',
     version=__version__,
+    description=long_description,
+    long_description=long_description,
     packages=modules + tests,
     url='https://github.com/msparapa/dga',
     license='MIT',
