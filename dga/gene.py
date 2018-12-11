@@ -33,7 +33,7 @@ class Gene(object):
         temp = (value - self.lower_bound) / self.coarse
         b10 = round(temp)
         gen = self._b10to2(b10, self.bits)
-        return bitarray(gen)
+        self.bitarray = bitarray(gen)
 
     def init_random(self):
         self.bitarray = bitarray([randint(2,size=1) for _ in range(self.bits)])

@@ -1,6 +1,5 @@
 from .dga import dga
-from .problem import Problem
-from .Gene import Gene
+from .gene import Gene
 
 import os
 import glob

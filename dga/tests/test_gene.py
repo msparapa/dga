@@ -1,4 +1,4 @@
-from dga.Gene import Gene
+from dga.gene import Gene
 
 def test_gene_encode():
     a = Gene(bits=2,lower_bound=0,upper_bound=3)

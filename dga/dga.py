@@ -1,8 +1,7 @@
 from dga import dga
 from numpy.random import randint, shuffle
 from statistics import mean
-from dga.Gene import Gene
-from dga.problem import Problem
+from dga.gene import Gene
 import numpy as np
 
 import pathos
