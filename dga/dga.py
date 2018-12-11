@@ -1,8 +1,7 @@
-from dga import dga
-from numpy.random import randint, shuffle
-from statistics import mean
-from dga.gene import Gene
+from .gene import Gene
 import numpy as np
+from functools import lru_cache
+import logging
 
 import pathos
 
@@ -17,6 +16,7 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
     xopt (list of floats)
     '''
 
+    cache_size = kwargs.get('cache_size', None)
     display_flag = kwargs.get('display_flag', 1)
     termination_bit_string_affinity = kwargs.get('termination_bit_string_affinity', 0.9)
     population_size = kwargs.get('population_size', None)
@@ -30,18 +30,18 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
 
     # Perform some error checking with each state
     total_bits = 0
-    # for state in problem.states:
-    #     # Verify every state has a lower and an upper bound.
-    #     if state.lower_bound is None or state.upper_bound is None:
-    #         raise ValueError('All states must have both a lower and an upper bound')
-    #     # Verify each state has a number of bits associated with it
-    #     if state.bits is None or state.bits <= 0 or round(state.bits) != state.bits:
-    #         raise ValueError('All states must have a positive integer valued number of bits.')
-    #     total_bits += state.bits
+    if len(lower_bound) != len(upper_bound):
+        raise ValueError('Inputs for lower and upper bound must be the same length (' + str(len(lower_bound)) + ' != ' + str(len(upper_bound)) + ')')
+
+    if any(lower_bound > upper_bound):
+        raise ValueError('Lower bounds must be lower than upper bounds.')
+        total_bits += state.bits
 
     num_states = len(lower_bound)
-
     total_bits = sum(bits)
+
+    if cache_size is None:
+        cache_size = int(total_bits*100)
 
     # Create initial population size
     if population_size is None:
@@ -59,6 +59,14 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
             population[ii].append(Gene(bits=bits[jj], lower_bound=lower_bound[jj], upper_bound=upper_bound[jj]))
             population[ii][jj].init_random()
 
+    try:
+        new_cost = lru_cache(maxsize=cache_size)(cost)
+        test_value = new_cost(*[gene.decode() for gene in population[0]])
+        cost = new_cost
+    except Exception as e:
+        logging.warning('Could not cache cost function: ' + str(e))
+
+
     xopt, valueopt = get_best_individual(cost, population)
 
     # Begin the main loop
@@ -69,17 +77,20 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
         print('Generation\t\tMinimum\t\t\tMean\t\t\tMax\t\t\t\tBSA')  # TODO: Display the stats of generation 0
 
     if num_cpu > 1:
-        proc = pool.Pool(4)
+        proc = pathos.multiprocessing.ProcessPool(nodes=num_cpu)
 
+    nfev = 0
     while loop_counter < max_generations and not converged:
         tournament(cost, population)
         crossover(population, probability_mutation)
 
+        nfev += population_size
         if num_cpu > 1:
             fitness_values = proc.map(lambda i: get_fitness(cost, i), population)
         else:
             fitness_values = [get_fitness(cost, individual) for individual in population]
 
+        nfev += 1
         xopt_current, valueopt_current = get_best_individual(cost, population)
         if valueopt_current < valueopt:
             xopt = xopt_current
@@ -99,20 +110,25 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
                 FloatDisplayFormatting.format(np.max(fitness_values))) + '\t' + str(
                 FloatDisplayFormatting.format(BSA_current)))
 
-    if 0 == 1:
-        print('the phantom, exterior like fish eggs, interior suicide wrist red. I could excercise you, this could be your phys-ed cheat on your man homie AAH! I tried to sneak through the door man! Can\'t make it, can\'t make it, the shit\'s stuck! Outta my way son! DOOR STUCK! DOOR STUCK! Please. I beg you! We\'re dead! You\'re a g-g-genuine dick sucker!')
-
-    if display_flag > 0 and loop_counter >= max_generations and not converged:
-        print('Max iterations reached')
-    elif display_flag > 0 and converged:
+    message = ''
+    if loop_counter >= max_generations and not converged:
+        message = 'Max iterations reached.'
+    elif converged:
         if BSA_current > termination_bit_string_affinity:
-            print('Stopped based on bit-string affinity value.')
-        else:
-            print('Converged')
+            message = 'Stopped based on bit-string affinity value.'
+
+    if display_flag > 0:
+        print(message)
 
     out = dict()
-    out['xopt'] = [gene.decode() for gene in xopt]
-    out['cost'] = valueopt
+    out['fun'] = valueopt
+    out['jac'] = None
+    out['message'] = message
+    out['nfev'] = nfev
+    out['ngen'] = loop_counter
+    out['success'] = converged
+    out['x'] = [gene.decode() for gene in xopt]
+
     return out
 
 
@@ -130,7 +146,7 @@ def get_best_individual(cost, population):
 
 
 def crossover(population, probability_mutation):
-    shuffle(population) # Shuffling the current population to randomize the crossover
+    np.random.shuffle(population) # Shuffling the current population to randomize the crossover
     for ii in range(0, len(population), 2):
         child1, child2 = generate_offspring(population[ii], population[ii+1])
         mutate_individual(child1, probability_mutation)
@@ -141,7 +157,7 @@ def crossover(population, probability_mutation):
 
 
 def tournament(cost, population):
-    shuffle(population) # Begin by shuffling the current population to ensure we have a randomized tournament
+    np.random.shuffle(population) # Begin by shuffling the current population to ensure we have a randomized tournament
     fitness_value = list()
     for individual in population:
         fitness_value.append(get_fitness(cost, individual))
@@ -192,7 +208,7 @@ def generate_offspring(parent1, parent2):
         lim = max((num_poly1,num_poly2))
         nbits = gene1.bits
         for jj in range(nbits):
-            coin_toss = randint(2)
+            coin_toss = np.random.randint(2)
             if coin_toss == 0:
                 newgene1.bitarray[jj] = gene1.bitarray[jj]
                 newgene2.bitarray[jj] = gene2.bitarray[jj]
