@@ -4,6 +4,8 @@ from bitarray import bitarray
 from numpy.random import randint, rand
 from math import floor
 
+from ._gene import _b2to10, _b10to2
+
 class Gene(object):
     '''
     Gene class encoding information of a single variable into a string.
@@ -25,14 +27,14 @@ class Gene(object):
 
     def decode(self):
         ''' Decodes the current gene to the floating point number it represents. '''
-        return self.coarse*self._b2to10(self.bitarray) + self.lower_bound
+        return self.coarse*_b2to10(self.bitarray) + self.lower_bound
 
     def encode(self, value):
         ''' Encode a specific value into the gene. Note: this isn't needed unless an initial population is provided. '''
         lchrom = self.bits
         temp = (value - self.lower_bound) / self.coarse
         b10 = round(temp)
-        gen = self._b10to2(b10, self.bits)
+        gen = _b10to2(b10, self.bits)
         self.bitarray = bitarray(gen)
 
     def init_random(self):
@@ -46,26 +48,6 @@ class Gene(object):
 
     def __getitem__(self, item):
         return self.bitarray[item]
-
-    @staticmethod
-    def _b2to10(arr):
-        b10 = 0
-        loc = len(arr)-1
-        for ii in range(len(arr)):
-            b10 += arr[loc]*(2**ii)
-            loc -= 1
-
-        return b10
-
-    @staticmethod
-    def _b10to2(value, bits):
-        b2 = list()
-        for ii in range(bits-1, -1, -1):
-            bit_temp = floor(value/(2**ii))
-            b2.append(bit_temp)
-            value -= bit_temp*(2**ii)
-
-        return b2
 
     def _build_default_bit_array(self, bits):
         self.bitarray = bitarray(bits)

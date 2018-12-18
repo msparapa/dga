@@ -1,0 +1,8 @@
+# Cython
+*.pyd
+*.so
+*.c
+
+# Distribution and packaging
+build/
+dist/
