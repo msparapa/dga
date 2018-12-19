@@ -1,7 +1,6 @@
 from math import floor
 
 cpdef _b2to10(arr):
-    cdef int ii
     cdef int loc
     b10 = 0
     loc = len(arr) - 1
