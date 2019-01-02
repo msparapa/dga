@@ -1,5 +1,14 @@
+# Include the logo
+include *.png
+
+# Include the requirements
+include *.txt
+
 # Include the README
 include *.md
 
 # Include the license file
 include LICENSE.txt
+
+# Include the examples
+recursive-include examples *.py
