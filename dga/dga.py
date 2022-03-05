@@ -1,13 +1,24 @@
 from .gene import Gene
+from typing import Optional
 import numpy as np
 from functools import lru_cache
 import logging
 
-import pathos
+logging.basicConfig(level = logging.WARNING)
+logger = logging.getLogger(__name__)
+
+def set_logging_level(level):
+    logger.setLevel(level)
 
 FloatDisplayFormatting = '{0:12.4f}' # Sets the formatting for when stats are displayed each generation
 
-def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
+def solve(cost, lower_bound, upper_bound, bits,
+          cache : bool = True,
+          cache_size : Optional[int] = None,
+          termination_bit_string_affinity : float = 0.9,
+          population_size : Optional[int] = None,
+          probability_mutation : Optional[float] = None,
+          max_generations : int = 200):
     '''
     Inputs:
     problem definition (problem)
@@ -15,14 +26,6 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
     Outputs:
     xopt (list of floats)
     '''
-
-    cache_size = kwargs.get('cache_size', None)
-    display_flag = kwargs.get('display_flag', 1)
-    termination_bit_string_affinity = kwargs.get('termination_bit_string_affinity', 0.9)
-    population_size = kwargs.get('population_size', None)
-    probability_mutation = kwargs.get('probability_mutation', None)
-    max_generations = kwargs.get('max_generations', 200)
-    num_cpu = kwargs.get('num_cpu', 1)
 
     lower_bound = np.array(lower_bound, dtype=np.float64)
     upper_bound = np.array(upper_bound, dtype=np.float64)
@@ -35,7 +38,6 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
 
     if any(lower_bound > upper_bound):
         raise ValueError('Lower bounds must be lower than upper bounds.')
-        total_bits += state.bits
 
     num_states = len(lower_bound)
     total_bits = sum(bits)
@@ -59,13 +61,13 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
             population[ii].append(Gene(bits=bits[jj], lower_bound=lower_bound[jj], upper_bound=upper_bound[jj]))
             population[ii][jj].init_random()
 
-    try:
-        new_cost = lru_cache(maxsize=cache_size)(cost)
-        test_value = new_cost(*[gene.decode() for gene in population[0]])
-        cost = new_cost
-    except Exception as e:
-        logging.warning('Could not cache cost function: ' + str(e))
-
+    if cache:
+        try:
+            new_cost = lru_cache(maxsize=cache_size)(cost)
+            test_value = new_cost(*[gene.decode() for gene in population[0]])
+            cost = new_cost
+        except Exception as e:
+            logger.warning('Could not cache cost function: ' + str(e))
 
     xopt, valueopt = get_best_individual(cost, population)
 
@@ -73,11 +75,7 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
     loop_counter = 0
     converged = False
 
-    if display_flag > 0:
-        print('Generation\t\tMinimum\t\t\tMean\t\t\tMax\t\t\t\tBSA')  # TODO: Display the stats of generation 0
-
-    if num_cpu > 1:
-        proc = pathos.multiprocessing.ProcessPool(nodes=num_cpu)
+    logger.info(' Generation\tMinimum\t\tMean\t\tMax\t\tBSA')
 
     nfev = 0
     while loop_counter < max_generations and not converged:
@@ -85,10 +83,7 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
         crossover(population, probability_mutation)
 
         nfev += population_size
-        if num_cpu > 1:
-            fitness_values = proc.map(lambda i: get_fitness(cost, i), population)
-        else:
-            fitness_values = [get_fitness(cost, individual) for individual in population]
+        fitness_values = get_fitness_pop(cost, population)
 
         nfev += 1
         xopt_current, valueopt_current = get_best_individual(cost, population)
@@ -103,12 +98,11 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
             converged = True
 
         loop_counter += 1
-        if display_flag > 0:
-            print(str('{0:8.0f}'.format(loop_counter)) + '\t' + str(
-                FloatDisplayFormatting.format(np.min(fitness_values))) + '\t' + str(
-                FloatDisplayFormatting.format(np.mean(fitness_values))) + '\t' + str(
-                FloatDisplayFormatting.format(np.max(fitness_values))) + '\t' + str(
-                FloatDisplayFormatting.format(BSA_current)))
+        logger.info(str('{0:8.0f}'.format(loop_counter)) + '\t' + str(
+            FloatDisplayFormatting.format(np.min(fitness_values))) + '\t' + str(
+            FloatDisplayFormatting.format(np.mean(fitness_values))) + '\t' + str(
+            FloatDisplayFormatting.format(np.max(fitness_values))) + '\t' + str(
+            FloatDisplayFormatting.format(BSA_current)))
 
     message = ''
     if loop_counter >= max_generations and not converged:
@@ -117,8 +111,7 @@ def dga(cost, lower_bound, upper_bound, bits, *args, **kwargs):
         if BSA_current > termination_bit_string_affinity:
             message = 'Stopped based on bit-string affinity value.'
 
-    if display_flag > 0:
-        print(message)
+    logger.info(message)
 
     out = dict()
     out['fun'] = valueopt
@@ -158,9 +151,7 @@ def crossover(population, probability_mutation):
 
 def tournament(cost, population):
     np.random.shuffle(population) # Begin by shuffling the current population to ensure we have a randomized tournament
-    fitness_value = list()
-    for individual in population:
-        fitness_value.append(get_fitness(cost, individual))
+    fitness_value = get_fitness_pop(cost, population)
 
     remove_set = list()
     for ii in range(0, len(population), 2):
@@ -220,6 +211,15 @@ def generate_offspring(parent1, parent2):
         child2.append(newgene2)
 
     return child1, child2
+
+
+def get_fitness_pop(cost, population):
+    fitness_value = list()
+    for individual in population:
+        fitness_value.append(get_fitness(cost, individual))
+
+    return fitness_value
+
 
 def get_fitness(cost, individual):
     decoded_state = [ii.decode() for ii in individual]

@@ -4,7 +4,9 @@ os:
 python:
   - 3.5
   - 3.6
-  - 3.7-dev
+  - 3.7
+  - 3.8
+  - 3.9
 cache: pip
 install:
   - pip install -e .

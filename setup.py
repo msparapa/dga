@@ -23,10 +23,7 @@ setup(
     url='https://github.com/msparapa/dga',
     license='MIT',
     author='Michael Sparapany',
-    author_email='msparapa@purdue.edu',
+    author_email='msparapany@gmail.com',
     python_requires='>=3.5',
-    setup_requires=['setuptools>=18.0', 'cython'],
     install_requires=requirements,
-    include_package_data=True,
-    ext_modules=[Extension('dga._gene', sources=['dga/_gene.pyx'])]
 )
